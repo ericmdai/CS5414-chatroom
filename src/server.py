@@ -17,6 +17,7 @@ class Server(Thread):
 
         # Setup master socket for listening to commands from master
         self.master_socket = socket(AF_INET, SOCK_STREAM)
+        self.master_socket.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
         self.master_socket.bind((address, port))
         self.master_socket.listen(1)
 
@@ -26,31 +27,43 @@ class Server(Thread):
         # Setup scanners for maintaining alive list
         self.scanners = [Scanner(i) for i in xrange(n)]
 
+    def parse_command(self, s, connection):
+        cmd = s.strip().split(' ', 1)
+        # print '[server] cmd:', cmd
+        if cmd[0] == 'get':
+            connection.send(self.get())
+        elif cmd[0] == 'alive':
+            connection.send(self.alive())
+            # print '[server] Response sent'
+        else:
+            self.broadcast(cmd[1])
+
     def get(self):
-        return 'messages ' + ' '.join(self.listener.get_messages())
+        return 'messages ' + ','.join(self.listener.get_messages()) + '\n'
 
     def alive(self):
-        return map(lambda x: x.is_alive(), self.scanners)
+        living = [i if x.is_alive() else -1 for i, x in enumerate(self.scanners)]
+        living = filter(lambda x: x >= 0, living)
+        living = map(str, living)
+        living = 'alive ' + ','.join(living) + '\n'
+        # print '[server]', living
+        return living
 
     def broadcast(self):
         for i in xrange(self.n):
-            print i
+            a = i
 
     def run(self):
         self.listener.start()
         map(lambda scanner: scanner.start(), self.scanners)
 
+        # Parse commands from master
         while True:
-            # print self.alive()
-            time.sleep(1)
-
-        # while True:
-        #     connection, address = self.master_socket.accept()
-        #     print connection
-        #     while True:
-        #         message = connection.recv(64)
-        #         if len(message) > 0:
-        #             print 'messages:', self.messages
+            connection, address = self.master_socket.accept()
+            while True:
+                s = connection.recv(64)
+                if len(s) > 0:
+                    self.parse_command(s, connection)
 
 
 class Listener(Thread):
@@ -59,8 +72,8 @@ class Listener(Thread):
         Thread.__init__(self)
         self.messages = []
         self.socket = socket(AF_INET, SOCK_STREAM)
-        self.socket.bind((address, port))
         self.socket.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
+        self.socket.bind((address, port))
         self.socket.listen(n)
 
     def get_messages(self):
