@@ -17,6 +17,7 @@ wait_ack = False
 
 
 class ClientHandler(Thread):
+
     def __init__(self, index, address, port, process):
         Thread.__init__(self)
         self.index = index
@@ -62,6 +63,7 @@ class ClientHandler(Thread):
 
     def send(self, s):
         if self.valid:
+            # print '[master] Client send'
             self.sock.send(str(s) + '\n')
 
     def close(self):
@@ -87,24 +89,33 @@ def kill(index):
 
 
 def send(index, data, set_wait_ack=False):
+    # print '[master] Starting send'
     global threads, wait_ack
     wait = wait_ack
+    # print '[master] Starting while wait'
     while wait:
         time.sleep(0.01)
         wait = wait_ack
+    # print '[master] 1'
     pid = int(index)
     if pid >= 0:
         if pid not in threads:
             print 'Master or testcase error!'
             return
+        # print '[master] 2'
         if set_wait_ack:
             wait_ack = True
+        # print '[master] 3'
         threads[pid].send(data)
+        # print '[master] Send finished'
         return
 
+    # print '[master] 4'
     if set_wait_ack:
         wait_ack = True
+    # print '[master] 5'
     threads[pid].send(data)
+    # print '[master] Send finished'
 
 
 def exit(force=False):
@@ -135,6 +146,7 @@ def main(debug=False):
     timeout_thread.start()
 
     while True:
+        # print '[master] Waiting for input'
         line = ''
         try:
             line = sys.stdin.readline()
@@ -189,7 +201,9 @@ def main(debug=False):
             threads[pid] = handler
             handler.start()
         elif cmd == 'get' or cmd == 'alive':
+            # print '[master] Sending...'
             send(pid, sp1[1], set_wait_ack=True)
+            # print '[master] Finished send get/alive'
         elif cmd == 'broadcast':
             send(pid, sp1[1])
         elif cmd == 'crash':

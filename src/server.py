@@ -49,21 +49,29 @@ class Server(Thread):
         # print '[server]', living
         return living
 
-    def broadcast(self):
+    def broadcast(self, message):
         for i in xrange(self.n):
-            a = i
+            if self.scanners[i].is_alive():
+                s = socket(AF_INET, SOCK_STREAM)
+                s.connect((address, 30000 + i))
+                s.send(message)
+                s.close()
 
     def run(self):
         self.listener.start()
         map(lambda scanner: scanner.start(), self.scanners)
 
         # Parse commands from master
+        master_buffer = ''
+        connection, address = self.master_socket.accept()
         while True:
-            connection, address = self.master_socket.accept()
-            while True:
-                s = connection.recv(64)
-                if len(s) > 0:
-                    self.parse_command(s, connection)
+            if "\n" in master_buffer:
+                (s, rest) = master_buffer.split("\n", 1)
+                master_buffer = rest
+                self.parse_command(s, connection)
+            else:
+                data = connection.recv(1024)
+                master_buffer += data
 
 
 class Listener(Thread):

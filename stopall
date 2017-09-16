@@ -3,4 +3,4 @@
 # Kill Java
 killall -9 process
 killall -9 java
-killall -9 python
+# killall -9 python
